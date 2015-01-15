@@ -17,7 +17,16 @@ import (
 	//"unsafe"
 )
 
-func openPort(name string, baud int) (rwc io.ReadWriteCloser, err error) {
+func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
+	if c.RTSFlowControl == RTSFlowControlHandshake {
+		return nil, fmt.Errorf("RTSFlowControlHandshake not supported", c.RTSFlowControl)
+	}
+	if c.XONFlowControl {
+		return nil, fmt.Errorf("XONFlowControl not supported")
+	}
+	name := c.Name
+	baud := c.Baud
+
 	f, err := os.OpenFile(name, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0666)
 	if err != nil {
 		return

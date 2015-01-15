@@ -57,6 +57,15 @@ package serial
 
 import "io"
 
+
+// The RTS (request-to-send) flow control
+type RTSFlowControl byte
+
+const (
+	RTSFlowControlDisable = RTSFlowControl(iota)
+	RTSFlowControlHandshake
+)
+
 // Config contains the information needed to open a serial port.
 //
 // Currently few options are implemented, but more may be added in the
@@ -79,9 +88,9 @@ type Config struct {
 	// Parity   SomeNewTypeToGetCorrectDefaultOf_None
 	// StopBits SomeNewTypeToGetCorrectDefaultOf_1
 
-	// RTSFlowControl bool
+	RTSFlowControl RTSFlowControl
 	// DTRFlowControl bool
-	// XONFlowControl bool
+	XONFlowControl bool
 
 	// CRLFTranslate bool
 	// TimeoutStuff int
@@ -89,7 +98,7 @@ type Config struct {
 
 // OpenPort opens a serial port with the specified configuration
 func OpenPort(c *Config) (io.ReadWriteCloser, error) {
-	return openPort(c.Name, c.Baud)
+	return openPort(c)
 }
 
 // func Flush()

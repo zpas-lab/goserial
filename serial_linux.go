@@ -3,13 +3,20 @@
 package serial
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"syscall"
 	"unsafe"
 )
 
-func openPort(name string, baud int) (rwc io.ReadWriteCloser, err error) {
+func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
+	if c.RTSFlowControl == RTSFlowControlHandshake {
+		return nil, fmt.Errorf("RTSFlowControlHandshake not supported", c.RTSFlowControl)
+	}
+	if c.XONFlowControl {
+		return nil, fmt.Errorf("XONFlowControl not supported")
+	}
 
 	var bauds = map[int]uint32{
 		50:      syscall.B50,
