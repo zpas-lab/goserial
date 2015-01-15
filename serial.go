@@ -62,7 +62,7 @@ import "io"
 type RTSFlowControl byte
 
 const (
-	RTSFlowControlDisable = RTSFlowControl(iota)
+	RTSFlowControlDisabled = RTSFlowControl(iota)
 	RTSFlowControlHandshake
 )
 
