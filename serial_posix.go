@@ -18,12 +18,27 @@ import (
 )
 
 func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
-	if c.RTSFlowControl == RTSFlowControlHandshake {
-		return nil, fmt.Errorf("RTSFlowControlHandshake not supported", c.RTSFlowControl)
-	}
-	if c.XONFlowControl {
-		return nil, fmt.Errorf("XONFlowControl not supported")
-	}
+	// NOTE(mateuszc): Below block is commented-out, as it seems to not be
+	// necessary for us when running agent via Docker on Ubuntu. If "proper"
+	// solution is needed in future, try testing something like below:
+	//
+	//   const CRTSCTS uint32 = 0x80000000
+	//   if c.RTSFlowControl == RTSFlowControlHandshake {
+	//   	t.Cflag |= CRTSCTS
+	//   }
+	//   if c.XONFlowControl {
+	//   	// TODO(mateuszc): or IXANY? or just IXON?
+	//   	// t.Iflag |= syscall.IXON | syscall.IXOFF
+	//   	t.Iflag |= syscall.IXON
+	//   }
+	//
+	//// The original commented-out code: ////
+	// if c.RTSFlowControl == RTSFlowControlHandshake {
+	// 	return nil, fmt.Errorf("RTSFlowControlHandshake not supported", c.RTSFlowControl)
+	// }
+	// if c.XONFlowControl {
+	// 	return nil, fmt.Errorf("XONFlowControl not supported")
+	// }
 	name := c.Name
 	baud := c.Baud
 

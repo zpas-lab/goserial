@@ -170,10 +170,10 @@ func setCommState(h syscall.Handle, c *Config) error {
 	params.flags[0] |= 0x10 // Assert DSR
 
 	if c.XONFlowControl {
-		params.flags[1] |= 0x01
+		params.flags[1] |= 0x01 // fOutX
 	}
 	if c.RTSFlowControl == RTSFlowControlHandshake {
-		params.flags[1] |= 0x20
+		params.flags[1] |= 0x20 // fRtsControl = 2
 	}
 
 	params.BaudRate = uint32(c.Baud)
