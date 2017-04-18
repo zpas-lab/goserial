@@ -11,13 +11,12 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"syscall"
 	//"unsafe"
 )
 
-func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
+func openPort(c *Config) (p *Port, err error) {
 	// NOTE(mateuszc): Below block is commented-out, as it seems to not be
 	// necessary for us when running agent via Docker on Ubuntu. If "proper"
 	// solution is needed in future, try testing something like below:
@@ -39,8 +38,14 @@ func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
 	// if c.XONFlowControl {
 	// 	return nil, fmt.Errorf("XONFlowControl not supported")
 	// }
-	name := c.Name
-	baud := c.Baud
+	var (
+		name        = c.Name
+		baud        = c.Baud
+		databits    = c.Size
+		parity      = c.Parity
+		stopbits    = c.StopBits
+		readTimeout = c.ReadTimeout
+	)
 
 	f, err := os.OpenFile(name, syscall.O_RDWR|syscall.O_NOCTTY|syscall.O_NONBLOCK, 0666)
 	if err != nil {
@@ -75,6 +80,24 @@ func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
 		speed = C.B4800
 	case 2400:
 		speed = C.B2400
+	case 1200:
+		speed = C.B1200
+	case 600:
+		speed = C.B600
+	case 300:
+		speed = C.B300
+	case 200:
+		speed = C.B200
+	case 150:
+		speed = C.B150
+	case 134:
+		speed = C.B134
+	case 110:
+		speed = C.B110
+	case 75:
+		speed = C.B75
+	case 50:
+		speed = C.B50
 	default:
 		f.Close()
 		return nil, fmt.Errorf("Unknown baud rate %v", baud)
@@ -96,11 +119,53 @@ func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
 
 	// Select local mode, turn off parity, set to 8 bits
 	st.c_cflag &= ^C.tcflag_t(C.CSIZE | C.PARENB)
-	st.c_cflag |= (C.CLOCAL | C.CREAD | C.CS8)
-
+	st.c_cflag |= (C.CLOCAL | C.CREAD)
+	// databits
+	switch databits {
+	case 5:
+		st.c_cflag |= C.CS5
+	case 6:
+		st.c_cflag |= C.CS6
+	case 7:
+		st.c_cflag |= C.CS7
+	case 8:
+		st.c_cflag |= C.CS8
+	default:
+		return nil, ErrBadSize
+	}
+	// Parity settings
+	switch parity {
+	case ParityNone:
+		// default is no parity
+	case ParityOdd:
+		st.c_cflag |= C.PARENB
+		st.c_cflag |= C.PARODD
+	case ParityEven:
+		st.c_cflag |= C.PARENB
+	default:
+		return nil, ErrBadParity
+	}
+	// Stop bits settings
+	switch stopbits {
+	case Stop1:
+		// as is, default is 1 bit
+	case Stop2:
+		st.c_cflag |= C.CSTOPB
+	default:
+		return nil, ErrBadStopBits
+	}
 	// Select raw mode
 	st.c_lflag &= ^C.tcflag_t(C.ICANON | C.ECHO | C.ECHOE | C.ISIG)
 	st.c_oflag &= ^C.tcflag_t(C.OPOST)
+
+	// set blocking / non-blocking read
+	/*
+	*	http://man7.org/linux/man-pages/man3/termios.3.html
+	* - Supports blocking read and read with timeout operations
+	 */
+	vmin, vtime := posixTimeoutValues(readTimeout)
+	st.c_cc[C.VMIN] = C.cc_t(vmin)
+	st.c_cc[C.VTIME] = C.cc_t(vtime)
 
 	_, err = C.tcsetattr(fd, C.TCSANOW, &st)
 	if err != nil {
@@ -131,5 +196,30 @@ func openPort(c *Config) (rwc io.ReadWriteCloser, err error) {
 				}
 	*/
 
-	return f, nil
+	return &Port{f: f}, nil
+}
+
+type Port struct {
+	// We intentionly do not use an "embedded" struct so that we
+	// don't export File
+	f *os.File
+}
+
+func (p *Port) Read(b []byte) (n int, err error) {
+	return p.f.Read(b)
+}
+
+func (p *Port) Write(b []byte) (n int, err error) {
+	return p.f.Write(b)
+}
+
+// Discards data written to the port but not transmitted,
+// or data received but not read
+func (p *Port) Flush() error {
+	_, err := C.tcflush(C.int(p.f.Fd()), C.TCIOFLUSH)
+	return err
+}
+
+func (p *Port) Close() (err error) {
+	return p.f.Close()
 }
