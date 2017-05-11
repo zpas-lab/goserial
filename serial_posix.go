@@ -142,6 +142,7 @@ func openPort(c *Config) (p *Port, err error) {
 		st.c_cflag |= C.PARODD
 	case ParityEven:
 		st.c_cflag |= C.PARENB
+		st.c_cflag &= ^C.tcflag_t(C.PARODD)
 	default:
 		return nil, ErrBadParity
 	}
